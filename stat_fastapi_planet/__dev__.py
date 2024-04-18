@@ -12,7 +12,7 @@ except ImportError:
     exit(1)
 
 from stat_fastapi.api import StatApiRouter
-from stat_fastapi_planet import StatBlackskyBackend
+from stat_fastapi_planet import StatPlanetBackend
 
 
 class DevSettings(BaseSettings):
@@ -21,7 +21,7 @@ class DevSettings(BaseSettings):
 
 
 app = FastAPI(debug=True)
-app.include_router(StatApiRouter(backend=StatBlackskyBackend()).router)
+app.include_router(StatApiRouter(backend=StatPlanetBackend()).router)
 
 
 def cli():

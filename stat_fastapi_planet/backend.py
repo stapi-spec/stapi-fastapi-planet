@@ -36,6 +36,25 @@ PRODUCTS = [
         parameters=Constraints,
         links=[],
     ),
+    Product(
+        id="PL-123456:Flexible Tasking",
+        description="SkySat Flexible Tasking ",
+        license="proprietary",
+        providers=[
+            Provider(
+                name="Planet",
+                roles=[
+                    ProviderRole.licensor,
+                    ProviderRole.producer,
+                    ProviderRole.processor,
+                    ProviderRole.host,
+                ],
+                url="https://www.planet.com/",
+            )
+        ],
+        parameters=Constraints,
+        links=[],
+    ),
 ]
 
 
@@ -79,6 +98,15 @@ def get_opportunities(planet_request: dict, token: str):
         "authorization": token,
     }
 
+    scheduling_type = planet_request.constraints.get('scheduling_type')
+    match (scheduling_type):
+        case 'Assured':
+            return find_assured_opportunities(search_request)
+        case 'Flexible':
+            return find_flexible_opportunities(search_request)
+
+    raise NotImplementedError(f"Unsupported scheduling type: {scheduling_type}")
+
     r = requests.post(
         f"{PLANET_BASE_URL}/feasibility/plan", headers=headers, json=planet_request
     )
@@ -108,7 +136,7 @@ def planet_opportunity_to_opportunity(iw: dict):
 class StatPlanetBackend:
 
     def __init__(self):
-        settings = Settings.load()
+        self.settings = Settings.load()
 
     def products(self, request: Request) -> list[Product]:
         """
@@ -135,7 +163,6 @@ class StatPlanetBackend:
         token = os.environ.get("BACKEND_TOKEN")
         if authorization := request.headers.get("authorization"):
             token = authorization.replace("Bearer ", "")
-                
         planet_request = stat_to_opportunities_request(search)
         opportunities = get_opportunities(planet_request, token)
         return [planet_opportunity_to_opportunity(iw) for iw in opportunities]

@@ -1,34 +1,28 @@
-from datetime import datetime, timezone
-from uuid import uuid4
 import logging
-
-logger = logging.getLogger(__name__)
-
 
 from fastapi import Request
 from returns.maybe import Maybe, Nothing, Some
 from returns.result import Failure, ResultE, Success
 
+from stapi_fastapi import Link
+from stapi_fastapi.constants import TYPE_JSON
 from stapi_fastapi.models.opportunity import (
     Opportunity,
-    OpportunityCollection,
     OpportunityPayload,
-    OpportunitySearchRecord,
-    OpportunitySearchStatus,
-    OpportunitySearchStatusCode,
 )
 from stapi_fastapi.models.order import (
     Order,
     OrderPayload,
-    OrderProperties,
-    OrderSearchParameters,
     OrderStatus,
-    OrderStatusCode,
 )
+from stapi_fastapi.models.product import ProductsCollection
 from stapi_fastapi.routers.product_router import ProductRouter
+from stapi_fastapi.routers.route_names import CREATE_ORDER, LIST_PRODUCTS
 
-from client import Client
-import conversions
+from . import conversions
+from .client import Client
+
+logger = logging.getLogger(__name__)
 
 
 async def mock_get_orders(
@@ -64,7 +58,11 @@ async def get_order(order_id: str, request: Request) -> ResultE[Maybe[Order]]:
     """
     try:
         return Success(
-            Maybe.from_optional(conversions.planet_order_to_stapi_order(Client(request).get_order(order_id)))
+            Maybe.from_optional(
+                conversions.planet_order_to_stapi_order(
+                    Client(request).get_order(order_id)
+                )
+            )
         )
     except Exception as e:
         return Failure(e)
@@ -92,46 +90,39 @@ async def mock_get_order_statuses(
         return Failure(e)
 
 
-async def mock_create_order(
+async def get_products(self, request: Request, **router_args) -> ProductsCollection:
+    links = [
+        Link(
+            href=str(request.url_for(f"{self.name}:{LIST_PRODUCTS}")),
+            rel="self",
+            type=TYPE_JSON,
+        ),
+    ]
+    return ProductsCollection(
+        products=[
+            conversions.planet_product_to_stapi_product(planet_product, **router_args)
+            for planet_product in Client(request).get_products()
+        ],
+        links=links,
+    )
+
+
+async def create_order(
     product_router: ProductRouter, payload: OrderPayload, request: Request
 ) -> ResultE[Order]:
-    """
-    Create a new order.
-    """
     try:
-        status = OrderStatus(
-            timestamp=datetime.now(timezone.utc),
-            status_code=OrderStatusCode.received,
+        planet_payload = conversions.stapi_order_payload_to_planet_create_order_payload(
+            payload, product_router.product
         )
-        order = Order(
-            id=str(uuid4()),
-            geometry=payload.geometry,
-            properties=OrderProperties(
-                product_id=product_router.product.id,
-                created=datetime.now(timezone.utc),
-                status=status,
-                search_parameters=OrderSearchParameters(
-                    geometry=payload.geometry,
-                    datetime=payload.datetime,
-                    filter=payload.filter,
-                ),
-                order_parameters=payload.order_parameters.model_dump(),
-                opportunity_properties={
-                    "datetime": "2024-01-29T12:00:00Z/2024-01-30T12:00:00Z",
-                    "off_nadir": 10,
-                },
-            ),
-            links=[],
-        )
-
-        request.state._orders_db.put_order(order)
-        request.state._orders_db.put_order_status(order.id, status)
-        return Success(order)
+        planet_order_response = Client(request).create_order(planet_payload)
+        stapi_order = conversions.planet_order_to_stapi_order(planet_order_response)
+        return Success(stapi_order)
     except Exception as e:
         return Failure(e)
 
 
 # TODO why does this return a list of Opportunities and not an OpportunityCollection?
+#      and what does the related "get_search_opportunities" do in comparison?
 async def search_opportunities(
     product_router: ProductRouter,
     search: OpportunityPayload,
@@ -140,88 +131,20 @@ async def search_opportunities(
     request: Request,
 ) -> ResultE[tuple[list[Opportunity], Maybe[str]]]:
     try:
-        iw_request = conversions.stapi_opportunity_payload_to_planet_iw_search(product_router.product, search)
+        iw_request = conversions.stapi_opportunity_payload_to_planet_iw_search(
+            product_router.product, search
+        )
         imaging_windows = Client(request).get_imaging_windows(iw_request)
+        create_order_name = f"{product_router.root_router.name}:{product_router.product.id}:{CREATE_ORDER}"
+        create_href = str(request.url_for(create_order_name))
 
         opportunities = [
-            conversions.planet_iw_to_stapi_opportunity(iw, product_router.product, search)
-            for iw
-            in imaging_windows
+            conversions.planet_iw_to_stapi_opportunity(
+                iw, product_router.product, search, create_href
+            )
+            for iw in imaging_windows
         ]
-        #return OpportunityCollection(features=opportunities)
+        # return OpportunityCollection(features=opportunities)
         return Success((opportunities, Nothing))
-    except Exception as e:
-        return Failure(e)
-
-
-async def mock_search_opportunities_async(
-    product_router: ProductRouter,
-    search: OpportunityPayload,
-    request: Request,
-) -> ResultE[OpportunitySearchRecord]:
-    try:
-        received_status = OpportunitySearchStatus(
-            timestamp=datetime.now(timezone.utc),
-            status_code=OpportunitySearchStatusCode.received,
-        )
-        search_record = OpportunitySearchRecord(
-            id=str(uuid4()),
-            product_id=product_router.product.id,
-            opportunity_request=search,
-            status=received_status,
-            links=[],
-        )
-        request.state._opportunities_db.put_search_record(search_record)
-        return Success(search_record)
-    except Exception as e:
-        return Failure(e)
-
-
-async def mock_get_opportunity_collection(
-    product_router: ProductRouter, opportunity_collection_id: str, request: Request
-) -> ResultE[Maybe[OpportunityCollection]]:
-    try:
-        return Success(
-            Maybe.from_optional(
-                request.state._opportunities_db.get_opportunity_collection(
-                    opportunity_collection_id
-                )
-            )
-        )
-    except Exception as e:
-        return Failure(e)
-
-
-async def mock_get_opportunity_search_records(
-    next: str | None,
-    limit: int,
-    request: Request,
-) -> ResultE[tuple[list[OpportunitySearchRecord], Maybe[str]]]:
-    try:
-        start = 0
-        limit = min(limit, 100)
-        search_records = request.state._opportunities_db.get_search_records()
-
-        if next:
-            start = int(next)
-        end = start + limit
-        page = search_records[start:end]
-
-        if end > 0 and end < len(search_records):
-            return Success((page, Some(str(end))))
-        return Success((page, Nothing))
-    except Exception as e:
-        return Failure(e)
-
-
-async def mock_get_opportunity_search_record(
-    search_record_id: str, request: Request
-) -> ResultE[Maybe[OpportunitySearchRecord]]:
-    try:
-        return Success(
-            Maybe.from_optional(
-                request.state._opportunities_db.get_search_record(search_record_id)
-            )
-        )
     except Exception as e:
         return Failure(e)

@@ -1,30 +1,25 @@
-from typing import Any, Literal, Self
 from enum import Enum
-
+from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
 from stapi_fastapi.models.opportunity import (
-    Opportunity,
-    OpportunityCollection,
     OpportunityProperties,
-    OpportunitySearchRecord,
 )
 from stapi_fastapi.models.order import (
-    Order,
     OrderParameters,
-    OrderStatus,
 )
 from stapi_fastapi.models.product import (
-    Product,
     Provider,
     ProviderRole,
 )
 
+
 class PlanetSatelliteType(str, Enum):
-    SKYSAT = 'SKYSAT'
-    PELICAN = 'PELICAN'
-    TANAGER = 'TANAGER'
+    SKYSAT = "SKYSAT"
+    PELICAN = "PELICAN"
+    TANAGER = "TANAGER"
+
 
 class PlanetProductConstraints(BaseModel):
     off_nadir: float
@@ -44,6 +39,7 @@ class OffNadirAngleRange(BaseModel):
 class PlanetOpportunityProperties(OpportunityProperties):
     off_nadir_angle: OffNadirAngleRange
     satellite_type: PlanetSatelliteType
+    cloud_forecast: float
     # off_nadir start/end
     # sat_elevation_angle
     # sat_azimuth_angle
@@ -55,13 +51,12 @@ class PlanetOpportunityProperties(OpportunityProperties):
     # assured_tasking_tier
     # conflicting_orders
     # quota_priority_multiplier
-    # cloud_forecast
     # sensitivity_mode
 
 
 class PlanetOrderParameters(OrderParameters):
-    s3_path: str | None = None
-
+    imaging_window_id: str
+    name: str
 
 
 provider_planet = Provider(

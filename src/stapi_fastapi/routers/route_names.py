@@ -4,7 +4,6 @@ CONFORMANCE = "conformance"
 
 # Product
 LIST_PRODUCTS = "list-products"
-LIST_PRODUCTS = "list-products"
 GET_PRODUCT = "get-product"
 GET_CONSTRAINTS = "get-constraints"
 GET_ORDER_PARAMETERS = "get-order-parameters"

@@ -30,6 +30,13 @@ from stapi_fastapi.models.product import (
     ProviderRole,
 )
 
+from models import (
+    PlanetProductConstraints,
+    PlanetOpportunityProperties,
+    PlanetOrderParameters,
+    provider_planet
+)
+
 from backends import (
     mock_create_order,
     mock_get_opportunity_collection,
@@ -90,37 +97,8 @@ class InMemoryOpportunityDB:
 
 
 
-class MyProductConstraints(BaseModel):
-    off_nadir: int
 
 
-class OffNadirRange(BaseModel):
-    minimum: int = Field(ge=0, le=45)
-    maximum: int = Field(ge=0, le=45)
-
-    @model_validator(mode="after")
-    def validate_range(self) -> Self:
-        if self.minimum > self.maximum:
-            raise ValueError("range minimum cannot be greater than maximum")
-        return self
-
-
-class MyOpportunityProperties(OpportunityProperties):
-    off_nadir: OffNadirRange
-    vehicle_id: list[Literal[1, 2, 5, 7, 8]]
-    platform: Literal["platform_id"]
-
-
-class MyOrderParameters(OrderParameters):
-    s3_path: str | None = None
-
-
-provider_planet = Provider(
-    name="Planet",
-    description="A provider for Test data",
-    roles=[ProviderRole.producer],  # Example role
-    url="https://www.planet.com",  # Must be a valid URL
-)
 
 
 product_test_planet_sync_opportunity = Product(
@@ -135,31 +113,8 @@ product_test_planet_sync_opportunity = Product(
     search_opportunities=search_opportunities,
     search_opportunities_async=None,
     get_opportunity_collection=None,
-    constraints=MyProductConstraints,
-    opportunity_properties=MyOpportunityProperties,
-    order_parameters=MyOrderParameters,
+    constraints=PlanetProductConstraints,
+    opportunity_properties=PlanetOpportunityProperties,
+    order_parameters=PlanetOrderParameters,
 )
 
-
-def create_mock_opportunity() -> Opportunity:
-    now = datetime.now(timezone.utc)  # Use timezone-aware datetime
-    start = now
-    end = start + timedelta(days=5)
-
-    # Create a list of mock opportunities for the given product
-    return Opportunity(
-        id=str(uuid4()),
-        type="Feature",
-        geometry=Point(
-            type="Point",
-            coordinates=Position2D(longitude=0.0, latitude=0.0),
-        ),
-        properties=MyOpportunityProperties(
-            product_id="xyz123",
-            datetime=(start, end),
-            off_nadir=OffNadirRange(minimum=20, maximum=22),
-            vehicle_id=[1],
-            platform="platform_id",
-            other_thing="abcd1234",  # type: ignore
-        ),
-    )

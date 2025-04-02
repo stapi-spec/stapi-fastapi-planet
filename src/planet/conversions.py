@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from pydantic import AwareDatetime
 
+from planet.models import PlanetOpportunityProperties, OffNadirAngleRange, PlanetSatelliteType
 from stapi_fastapi import Product
 from stapi_fastapi.models.order import Order, OrderProperties, OrderSearchParameters, OrderStatus, OrderStatusCode
 from stapi_fastapi.models.opportunity import (
@@ -82,16 +83,25 @@ def stapi_opportunity_payload_to_planet_iw_search(product: Product, search: Oppo
         "geometry": search.geometry.dict(),
     }
 
-def planet_iw_to_stapi_opportunity(iw: dict, search: OpportunityPayload) -> Opportunity:
+def planet_iw_to_stapi_opportunity(iw: dict, product: Product, search: OpportunityPayload) -> Opportunity:
+
+    print(iw)
+
+    properties = PlanetOpportunityProperties(
+        product_id=product.id,
+        datetime=(iw['start_time'], iw['end_time']),
+        off_nadir_angle=OffNadirAngleRange(
+            minimum=iw['off_nadir_angle_min'],
+            maximum=iw['off_nadir_angle_max']),
+        satellite_type=PlanetSatelliteType(iw['satellite_type']),
+        title='Planet Assured Imaging Window @ ' + iw['start_time'],
+    )
+    if 'cloud_forecast' in iw and len(cf := iw['cloud_forecast']) > 0:
+        properties.cloud_forecast = cf[0].get('prediction')
+
     return Opportunity(
         id=iw["id"],
+        type="Feature",
         geometry=search.geometry,
-        properties={
-            'title': 'Planet Assured Imaging Window @ ' + iw['start_time'],
-            'datetime': f"{iw['start_time']}/{iw['end_time']}",
-            'product_id': search.product_id,
-            'constraints': {
-                'off_nadir': [iw['start_off_nadir'], iw['end_off_nadir']],
-                'cloud_cover': iw['cloud_forecast'][0]['prediction']
-            }
-        })
+        properties=properties
+    )

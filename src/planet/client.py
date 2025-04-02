@@ -38,9 +38,10 @@ class Client:
                 "Header 'location' not found: %s, status %s, body %s" % (
                     list(r.headers.keys()), r.status_code, r.text)
             )
-        poll_url = r.headers['location']
+        poll_url = f"{Settings().api_domain}{r.headers['location']}"
 
         while True:
+            print('polling', poll_url)
             r = requests.get(poll_url, headers=self.headers)
             r.raise_for_status()
             status = r.json()['status']

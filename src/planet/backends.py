@@ -28,7 +28,7 @@ from stapi_fastapi.models.order import (
 from stapi_fastapi.routers.product_router import ProductRouter
 
 from client import Client
-from conversions import planet_order_to_stapi_order, stapi_opportunity_payload_to_planet_iw_search
+import conversions
 
 
 async def mock_get_orders(
@@ -64,7 +64,7 @@ async def get_order(order_id: str, request: Request) -> ResultE[Maybe[Order]]:
     """
     try:
         return Success(
-            Maybe.from_optional(planet_order_to_stapi_order(Client(request).get_order(order_id)))
+            Maybe.from_optional(conversions.planet_order_to_stapi_order(Client(request).get_order(order_id)))
         )
     except Exception as e:
         return Failure(e)
@@ -140,11 +140,11 @@ async def search_opportunities(
     request: Request,
 ) -> ResultE[tuple[list[Opportunity], Maybe[str]]]:
     try:
-        iw_request = stapi_opportunity_payload_to_planet_iw_search(product_router.product, search)
+        iw_request = conversions.stapi_opportunity_payload_to_planet_iw_search(product_router.product, search)
         imaging_windows = Client(request).get_imaging_windows(iw_request)
 
         opportunities = [
-            imaging_window_to_opportunity(iw, search)
+            conversions.planet_iw_to_stapi_opportunity(iw, product_router.product, search)
             for iw
             in imaging_windows
         ]

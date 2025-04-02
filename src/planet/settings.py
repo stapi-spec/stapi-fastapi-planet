@@ -4,8 +4,6 @@ from logging import basicConfig
 from pydantic_settings import BaseSettings
 
 API_DOMAIN = "https://api.planet.com"
-API_BASE_URL = "https://api.staging.planet-labs.com"
-API_BASE_URL = "https://api.planet.com"
 
 
 class LogLevel(Enum):

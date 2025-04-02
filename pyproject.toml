@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "stapi-fastapi"
+name = "stapi-fastapi-planet"
 # placeholder version filled by poetry-dynamic-versioning
 version = "0.0.0"
-description = "Sensor Tasking API (STAPI) with FastAPI"
-authors = ["Christian Wygoda <christian.wygoda@wygoda.net>"]
+description = "Sensor Tasking API (STAPI) with FastAPI - Planet proxy"
+authors = ["Nicolas Neubauer <nic@planet.com>", "Christian Wygoda <christian.wygoda@wygoda.net>"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "stapi_fastapi", from="src"}]

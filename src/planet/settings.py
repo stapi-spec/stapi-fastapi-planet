@@ -3,7 +3,7 @@ from logging import basicConfig
 
 from pydantic_settings import BaseSettings
 
-ENV = "staging"
+ENV = "production"
 API_DOMAINS = {
     "production": "https://api.planet.com",
     "staging": "https://api.staging.planet-labs.com",
